@@ -78,6 +78,34 @@ var PINS = {
         '38': 20,
         // 39: ground
         '40': 21
+    },
+    opi0: {
+        // 1: 3.3v
+        // 2: 5v
+        '3':  12,
+        // 4: 5v
+        '5':  11,
+        // 6: ground
+        '7':  6,
+        '8':  198,
+        // 9: ground
+        '10': 199,
+        '11': 1,
+        '12': 7,
+        '13': 0,
+        // 14: ground
+        '15': 3,
+        '16': 19,
+        // 17: 3.3v
+        '18': 18,
+        '19': 15,
+        // 20: ground
+        '21': 16,
+        '22': 2,
+        '23': 14,
+        '24': 13,
+        // 25: ground
+        '26': 10,
     }
 };
 
@@ -360,17 +388,33 @@ function Gpio() {
                 if (err) {
                     return reject(err);
                 }
+                var revisionNumber;
+                var pinVersion;
+                // check for different hardware like orange pi
+                var matchhw = data.match(/Hardware\s*:\s*([0-9a-zA-Z ]*)/);
+                if (matchhw && matchhw[1] == "Allwinner sun8i Family") {
+                    var match = data.match(/CPU revision\s*:\s*([0-9a-f]*)/);
+                    // Orange PI
+                    if (match) {
+                        revisionNumber = parseInt(match[1], 16);
+                        pinVersion = 'opi0';
+                    } else {
+                        var errorMessage = 'Unable to match Revision in /proc/cpuinfo: ' + data;
+                        return reject(new Error(errorMessage));
+                    }
+                } else {
+                    // standard Raspi handling v1 or v2
+                    // Match the last 4 digits of the number following "Revision:"
+                    var match = data.match(/Revision\s*:\s*[0-9a-f]*([0-9a-f]{4})/);
+                    
+                    if (!match) {
+                        var errorMessage = 'Unable to match Revision in /proc/cpuinfo: ' + data;
+                        return reject(new Error(errorMessage));
+                    }
 
-                // Match the last 4 digits of the number following "Revision:"
-                var match = data.match(/Revision\s*:\s*[0-9a-f]*([0-9a-f]{4})/);
-
-                if (!match) {
-                    var errorMessage = 'Unable to match Revision in /proc/cpuinfo: ' + data;
-                    return reject(new Error(errorMessage));
+                    revisionNumber = parseInt(match[1], 16);
+                    pinVersion = (revisionNumber < 4) ? 'v1' : 'v2';
                 }
-
-                var revisionNumber = parseInt(match[1], 16);
-                var pinVersion = (revisionNumber < 4) ? 'v1' : 'v2';
 
                 debug(
                     'seen hardware revision %d; using pin mode %s',
